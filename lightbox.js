@@ -121,7 +121,7 @@ function initLightbox() {
                 this.autoUnmuteDone = false;
                 
                 // Performance controls for thumbnail loop iframes
-                this.maxActiveLoops = 8; // keep 6–10 active as requested
+                this.maxActiveLoops = 10; // keep 6–10 active as requested
                 this.activeThumbnails = new Set();
                 this.thumbnailObserver = null;
                 this.thumbnailsSuspended = false;
@@ -499,7 +499,7 @@ function initLightbox() {
             this.thumbnailsSuspended = false;
 
             const thumbnails = document.querySelectorAll('.open-lightbox .video-thumbnail');
-            const options = { root: null, rootMargin: '0px', threshold: 0.25 };
+            const options = { root: null, rootMargin: '300px 0px', threshold: 0.1 };
             const onIntersect = (entries) => {
                 entries.forEach((entry) => {
                     const thumb = entry.target;
@@ -513,7 +513,11 @@ function initLightbox() {
                 });
             };
             this.thumbnailObserver = new IntersectionObserver(onIntersect, options);
-            thumbnails.forEach((thumb) => this.thumbnailObserver.observe(thumb));
+            thumbnails.forEach((thumb) => {
+                this.thumbnailObserver.observe(thumb);
+                // Attempt activation immediately to handle elements already in view or zero-size elements
+                try { this.tryActivateThumbnail(thumb); } catch (_) {}
+            });
         }
 
         getThumbnailId(thumbnail) {
