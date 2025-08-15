@@ -828,15 +828,9 @@ function initLightbox() {
                 return;
             }
             
-            // Set the iframe src with the full video ID
-            // Never request autoplay in URL; we will play explicitly from the user's tap
-            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            // Default to muted to satisfy iOS Chrome autoplay policies; user can unmute
-            const restricted = this.isAutoplayRestricted();
-            // Desktop (not restricted): try autoplay with sound; Mobile/restricted: start muted, require gesture
-            const autoplayParam = restricted ? '0' : '1';
-            const mutedParam = restricted ? '1' : '0';
-            const embedUrl = `https://player.vimeo.com/video/${vimeoId}?autoplay=${autoplayParam}&muted=${mutedParam}&playsinline=1&autopause=1&title=0&byline=0&portrait=0&controls=0&pip=1&dnt=1`;
+            // Set the iframe src with the full video ID (Option C pattern)
+            // background=1, autoplay=0, muted=0; rely on single user tap to start with audio
+            const embedUrl = `https://player.vimeo.com/video/${vimeoId}?background=1&autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`;
             if (DEBUG) console.log(`Setting iframe src: ${embedUrl}`);
             this.videoFrame.src = embedUrl;
             
@@ -844,17 +838,11 @@ function initLightbox() {
             try {
                 if (DEBUG) console.log('Creating new Vimeo player');
                 this.currentPlayer = new Vimeo.Player(this.videoFrame);
+                // Ensure iframe allows autoplay inline
+                try { this.videoFrame.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media'); } catch (_) {}
+                try { this.videoFrame.setAttribute('playsinline', '1'); } catch (_) {}
 
-                const tryPlay = (allowShowControls) => {
-                    this.currentPlayer.play().then(() => {
-                        // success
-                    }).catch(() => {
-                        if (allowShowControls) this.showControls();
-                    });
-                };
-
-                // First attempt: within the same user gesture that opened the lightbox
-                tryPlay(false);
+                // Do not attempt play() before user gesture
 
                 // Setup player events
                 this.currentPlayer.ready().then(() => {
@@ -866,39 +854,18 @@ function initLightbox() {
                     if (this.videoFrame) {
                         this.videoFrame.style.opacity = '1';
                     }
-                    // Sync mute button label with actual volume
+                    // Ensure default volume; do not force muted state
                     try {
-                        if (typeof this.currentPlayer.getMuted === 'function') {
-                            this.currentPlayer.getMuted().then(muted => {
-                                this.isMuted = !!muted;
-                                this.updateMuteButtonLabel();
-                            });
-                        } else {
-                            this.currentPlayer.getVolume().then(vol => {
-                                this.isMuted = vol === 0;
-                                this.updateMuteButtonLabel();
-                            });
-                        }
+                        this.currentPlayer.setVolume(1).catch(() => {});
                     } catch (_) {}
-                    if (!restricted) {
-                        // Desktop: ensure sound on
-                        try { this.currentPlayer.setMuted(false); } catch (_) {}
-                        try { this.currentPlayer.setVolume(1); } catch (_) {}
-                        tryPlay(false);
-                    } else {
-                        // Mobile/restricted: start muted, no auto-unmute from play area
-                        try { this.currentPlayer.setMuted(true); } catch (_) {}
-                        try { this.currentPlayer.setVolume(0); } catch (_) {}
-                        this.updateMuteButtonLabel();
-                        // Controls remain visible; user must use the mute button to enable audio
-                    }
+                    // No auto-play here; rely on user tap
                 }).catch(error => {
                     console.error('Error loading video:', error);
                     this.showError();
                 });
 
-                // Minimal fallback: if not playing shortly after open, show controls
-                setTimeout(() => { if (!this.isPlaying) this.showControls(); }, 1000);
+                // Show controls promptly; no auto-play pre-gesture
+                setTimeout(() => { this.showControls(); }, 300);
             } catch (error) {
                 console.error('Error creating player:', error);
                 this.showError();
