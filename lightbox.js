@@ -965,6 +965,8 @@ function initLightbox() {
                 const restricted = this.isAutoplayRestricted();
                 if (restricted && this.isMuted) {
                     Promise.resolve()
+                        // Belt-and-suspenders: play, unmute, play again
+                        .then(() => { try { return this.currentPlayer.play(); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.setMuted(false); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.setVolume(1); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.play(); } catch (_) {} })
