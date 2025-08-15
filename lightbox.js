@@ -739,7 +739,8 @@ function initLightbox() {
             
             // Load video (this should use the MAIN video ID, not the thumbnail ID)
             // Assume valid data per site contract; always try to load
-            this.loadVideo(vimeoId);
+            const shouldAutoplayDesktop = !this.isAutoplayRestricted();
+            this.loadVideo(vimeoId, { shouldAutoplayDesktop });
         }
 
                     closeLightbox() {
@@ -803,7 +804,8 @@ function initLightbox() {
             }, 50);
         }
 
-        loadVideo(vimeoId) {
+        loadVideo(vimeoId, opts = {}) {
+            const { shouldAutoplayDesktop = false } = opts;
             if (DEBUG) console.log(`Loading video: ${vimeoId}`);
             // Allow loader only for initial load before player is ready
             this.allowLoader = true;
@@ -846,7 +848,14 @@ function initLightbox() {
                 try { this.videoFrame.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media'); } catch (_) {}
                 try { this.videoFrame.setAttribute('playsinline', '1'); } catch (_) {}
 
-                // Do not attempt play() before user gesture
+                // Desktop: auto-play immediately within the same open click
+                if (shouldAutoplayDesktop) {
+                    try {
+                        this.currentPlayer.setMuted(false).catch(()=>{});
+                        this.currentPlayer.setVolume(1).catch(()=>{});
+                        this.currentPlayer.play().catch(()=>{});
+                    } catch (_) {}
+                }
 
                 // Setup player events
                 this.currentPlayer.ready().then(() => {
@@ -942,7 +951,16 @@ function initLightbox() {
             if (!this.currentPlayer) return;
             
             if (this.isPlaying) {
-                this.currentPlayer.pause();
+                // On mobile: if playing but muted, treat tap as unmute instead of pause
+                if (this.isAutoplayRestricted() && this.isMuted) {
+                    Promise.resolve()
+                        .then(() => { try { return this.currentPlayer.setMuted(false); } catch (_) {} })
+                        .then(() => { try { return this.currentPlayer.setVolume(1); } catch (_) {} })
+                        .then(() => { this.isMuted = false; this.updateMuteButtonLabel(); this.hideCenterToast(); })
+                        .catch(()=>{});
+                } else {
+                    this.currentPlayer.pause();
+                }
             } else {
                 const restricted = this.isAutoplayRestricted();
                 if (restricted && this.isMuted) {
