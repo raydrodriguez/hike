@@ -256,9 +256,10 @@ function initLightbox() {
                             // Show toast BEFORE any play() so it isn't hidden by play event
                             this.showCenterToast(label);
                             if (unmuting) {
-                                try { await this.currentPlayer.play(); } catch (_) {}
+                                // Safari/iOS: unmute first, then play() to ensure audio starts
                                 try { await this.currentPlayer.setMuted(false); } catch (e) { /* ignore */ }
                                 try { await this.currentPlayer.setVolume(1); } catch (e) { /* ignore */ }
+                                try { await this.currentPlayer.play(); } catch (_) {}
                             } else {
                                 try { await this.currentPlayer.setVolume(0); } catch (e) { /* ignore */ }
                                 try { await this.currentPlayer.setMuted(true); } catch (e) { /* ignore */ }
