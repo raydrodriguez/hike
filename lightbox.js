@@ -122,17 +122,9 @@ function initLightbox() {
                 
                 this.setupEventListeners();
 
-                // Inject mute/unmute button next to Play without changing HTML
+                // No mute/unmute button; rely on system volume and play/pause only
                 this.isMuted = true;
-                this.muteBtn = document.createElement('button');
-                this.muteBtn.className = 'mute-btn';
-                this.muteBtn.type = 'button';
-                this.muteBtn.setAttribute('aria-label', 'Unmute');
-                this.muteBtn.textContent = 'Unmute';
-                if (this.controlsLeft) {
-                    try { this.controlsLeft.appendChild(this.muteBtn); } catch (_) {}
-                }
-                this.updateMuteButtonLabel();
+                this.muteBtn = null;
     
                 this.initializeThumbnailIframes();
                 
@@ -240,48 +232,7 @@ function initLightbox() {
                 }
 
                 // Mute/unmute button
-                if (this.muteBtn) {
-                    this.muteBtn.addEventListener('click', async () => {
-                        try {
-                            if (!this.currentPlayer) {
-                                // Show feedback immediately even if player not ready
-                                const nextMuted = !this.isMuted;
-                                this.isMuted = nextMuted;
-                                this.updateMuteButtonLabel();
-                                this.showCenterToast(nextMuted ? 'Muted' : 'Unmuted');
-                                return;
-                            }
-                            const unmuting = this.isMuted; // true if we are about to unmute
-                            const label = unmuting ? 'Unmuted' : 'Muted';
-                            // Show toast BEFORE any play() so it isn't hidden by play event
-                            this.showCenterToast(label);
-                            if (unmuting) {
-                                // Safari/iOS: unmute first, then play() to ensure audio starts
-                                try { await this.currentPlayer.setMuted(false); } catch (e) { /* ignore */ }
-                                try { await this.currentPlayer.setVolume(1); } catch (e) { /* ignore */ }
-                                try { await this.currentPlayer.play(); } catch (_) {}
-                            } else {
-                                try { await this.currentPlayer.setVolume(0); } catch (e) { /* ignore */ }
-                                try { await this.currentPlayer.setMuted(true); } catch (e) { /* ignore */ }
-                            }
-                            // Re-read actual mute state to set flag
-                            try {
-                                if (typeof this.currentPlayer.getMuted === 'function') {
-                                    const muted = await this.currentPlayer.getMuted();
-                                    this.isMuted = !!muted;
-                                } else {
-                                    const vol = await this.currentPlayer.getVolume();
-                                    this.isMuted = vol === 0;
-                                }
-                            } catch (_) {
-                                this.isMuted = !unmuting; // fallback
-                            }
-                            this.updateMuteButtonLabel();
-                        } catch (e) {
-                            if (DEBUG) console.warn('Could not toggle mute:', e);
-                        }
-                    });
-                }
+                // Mute/unmute button removed
 
                 // Click area for play/pause - play immediately on first tap
                 if (this.clickArea) {
