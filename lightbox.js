@@ -120,6 +120,12 @@ function initLightbox() {
                 this.lastUserGestureTs = 0;
                 this.autoUnmuteDone = false;
                 
+                // Performance controls for thumbnail loop iframes
+                this.maxActiveLoops = 8; // keep 6–10 active as requested
+                this.activeThumbnails = new Set();
+                this.thumbnailObserver = null;
+                this.thumbnailsSuspended = false;
+                
                 this.setupEventListeners();
 
                 // Inject mute/unmute button next to Play without changing HTML
@@ -484,47 +490,99 @@ function initLightbox() {
 
 
         initializeThumbnailIframes() {
-            if (DEBUG) console.log('Initializing thumbnail iframes');
+            if (DEBUG) console.log('Initializing thumbnail iframes (observer-based)');
             
-            // Initialize iframes for all thumbnails (only called once)
+            // Reset state
+            try { if (this.thumbnailObserver) this.thumbnailObserver.disconnect(); } catch (_) {}
+            this.activeThumbnails = new Set();
+            this.visibleThumbnails = new Set();
+            this.thumbnailsSuspended = false;
+
             const thumbnails = document.querySelectorAll('.open-lightbox .video-thumbnail');
-            thumbnails.forEach(thumbnail => {
-                const projectData = thumbnail.closest('.project-data');
-                const mainVimeoId = projectData ? projectData.dataset.mainVideo : undefined;
-                const thumbnailId = projectData ? projectData.dataset.thumbnailId : undefined;
-                
-                if (DEBUG) console.log(`Initializing thumbnail with main ID: ${mainVimeoId}, thumbnail ID: ${thumbnailId}`);
-                
-                // Remove any existing iframes first
-                const existingIframes = thumbnail.querySelectorAll('iframe');
-                existingIframes.forEach(iframe => iframe.remove());
-                
-                // Defer iframe creation until thumbnail has layout size (no hard-coded sizing)
-                const hasSize = thumbnail.offsetWidth > 0 && thumbnail.offsetHeight > 0;
-                if (!hasSize) {
-                    if (DEBUG) console.log('Thumbnail has no size yet, deferring iframe creation');
-                    const startWhenSized = () => this.createLoopVideoIframe(thumbnail, thumbnailId);
-                    if (typeof ResizeObserver !== 'undefined') {
-                        const ro = new ResizeObserver(() => {
-                            if (thumbnail.offsetWidth > 0 && thumbnail.offsetHeight > 0) {
-                                ro.disconnect();
-                                startWhenSized();
-                            }
-                        });
-                        ro.observe(thumbnail);
+            const options = { root: null, rootMargin: '0px', threshold: 0.25 };
+            const onIntersect = (entries) => {
+                entries.forEach((entry) => {
+                    const thumb = entry.target;
+                    if (entry.isIntersecting) {
+                        this.visibleThumbnails.add(thumb);
+                        if (!this.thumbnailsSuspended) this.tryActivateThumbnail(thumb);
                     } else {
-                        const pollId = setInterval(() => {
-                            if (thumbnail.offsetWidth > 0 && thumbnail.offsetHeight > 0) {
-                                clearInterval(pollId);
-                                startWhenSized();
-                            }
-                        }, 100);
-                        setTimeout(() => clearInterval(pollId), 10000);
+                        this.visibleThumbnails.delete(thumb);
+                        this.maybeDeactivateThumbnail(thumb);
                     }
-                } else {
-                    this.createLoopVideoIframe(thumbnail, thumbnailId);
+                });
+            };
+            this.thumbnailObserver = new IntersectionObserver(onIntersect, options);
+            thumbnails.forEach((thumb) => this.thumbnailObserver.observe(thumb));
+        }
+
+        getThumbnailId(thumbnail) {
+            const projectData = thumbnail.closest('.project-data');
+            return projectData ? projectData.dataset.thumbnailId : undefined;
+        }
+
+        tryActivateThumbnail(thumbnail) {
+            if (this.activeThumbnails.has(thumbnail)) return;
+            const thumbnailId = this.getThumbnailId(thumbnail);
+            if (!thumbnailId || this.thumbnailsSuspended) return;
+            // Enforce cap: prefer evicting non-visible active thumbs
+            if (this.activeThumbnails.size >= this.maxActiveLoops) {
+                let evicted = false;
+                for (const t of this.activeThumbnails) {
+                    if (!this.visibleThumbnails.has(t)) {
+                        this.deactivateThumbnail(t);
+                        evicted = true;
+                        break;
+                    }
                 }
-            });
+                if (!evicted) {
+                    // Evict oldest if all visible
+                    const oldest = this.activeThumbnails.values().next().value;
+                    if (oldest) this.deactivateThumbnail(oldest);
+                }
+            }
+            // Create if still under cap
+            if (this.activeThumbnails.size < this.maxActiveLoops) {
+                // Ensure element has layout size before creating
+                const start = () => this.createLoopVideoIframe(thumbnail, thumbnailId);
+                if (thumbnail.offsetWidth > 0 && thumbnail.offsetHeight > 0) {
+                    start();
+                } else if (typeof ResizeObserver !== 'undefined') {
+                    const ro = new ResizeObserver(() => {
+                        if (thumbnail.offsetWidth > 0 && thumbnail.offsetHeight > 0) {
+                            ro.disconnect();
+                            start();
+                        }
+                    });
+                    ro.observe(thumbnail);
+                } else {
+                    const pollId = setInterval(() => {
+                        if (thumbnail.offsetWidth > 0 && thumbnail.offsetHeight > 0) {
+                            clearInterval(pollId);
+                            start();
+                        }
+                    }, 100);
+                    setTimeout(() => clearInterval(pollId), 10000);
+                }
+                this.activeThumbnails.add(thumbnail);
+            }
+        }
+
+        maybeDeactivateThumbnail(thumbnail) {
+            if (!this.activeThumbnails.has(thumbnail)) return;
+            // If offscreen or suspended, remove to free resources
+            if (this.thumbnailsSuspended || !this.visibleThumbnails.has(thumbnail)) {
+                this.deactivateThumbnail(thumbnail);
+            }
+        }
+
+        deactivateThumbnail(thumbnail) {
+            try {
+                const iframe = thumbnail.querySelector('iframe[data-loop-iframe="true"]');
+                if (iframe) iframe.remove();
+            } catch (_) {}
+            this.activeThumbnails.delete(thumbnail);
+            this.restoreStaticImage(thumbnail);
         }
 
         recreateIframe() {
@@ -580,12 +638,14 @@ function initLightbox() {
             
             // Create iframe with loop video
             const iframe = document.createElement('iframe');
-            iframe.src = `https://player.vimeo.com/video/${thumbnailId}?background=1&autoplay=1&loop=1&muted=1&controls=0&title=0&byline=0&portrait=0&playsinline=1`;
+            iframe.src = `https://player.vimeo.com/video/${thumbnailId}?background=1&autoplay=1&loop=1&muted=1&controls=0&title=0&byline=0&portrait=0&playsinline=1&autopause=1&dnt=1&pip=0`;
             iframe.frameBorder = '0';
             iframe.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
             iframe.setAttribute('playsinline', '1');
             iframe.allowFullscreen = true;
             iframe.setAttribute('data-vimeo-background', 'true');
+            iframe.setAttribute('data-loop-iframe', 'true');
+            iframe.setAttribute('loading', 'lazy');
             
             // Set positioning styles
             iframe.style.position = 'absolute';
@@ -672,6 +732,15 @@ function initLightbox() {
             }
         }
 
+        restoreStaticImage(thumbnail) {
+            const thumbContainer = thumbnail.closest('.project-data') || thumbnail.parentElement;
+            const cover = thumbContainer ? thumbContainer.querySelector('.project-cover-img') : null;
+            if (cover) {
+                cover.style.opacity = '';
+                cover.style.visibility = '';
+            }
+        }
+
         handleMobileImageVisibility() {
             // Check all thumbnails when window is resized
             const thumbnails = document.querySelectorAll('.open-lightbox .video-thumbnail');
@@ -736,6 +805,12 @@ function initLightbox() {
 
             // Show lightbox
             this.lightbox.classList.add('active');
+
+            // Suspend thumbnails while lightbox is open to free CPU/BW
+            this.thumbnailsSuspended = true;
+            try {
+                (this.visibleThumbnails || new Set()).forEach((thumb) => this.maybeDeactivateThumbnail(thumb));
+            } catch (_) {}
             // Prefer GSAP ScrollSmoother lock if present; else fall back to HTML fixed lock
             try {
                 const smoother = (window.ScrollSmoother && typeof window.ScrollSmoother.get === 'function')
@@ -840,6 +915,16 @@ function initLightbox() {
             this.resetControls();
             this.hideError();
             this.hideLoading();
+
+            // Resume thumbnails after closing
+            this.thumbnailsSuspended = false;
+            try {
+                if (this.thumbnailObserver) {
+                    // Force re-check by unobserving/observing
+                    this.thumbnailObserver.disconnect();
+                    this.initializeThumbnailIframes();
+                }
+            } catch (_) {}
             
             // Refresh thumbnail loop iframes after closing to ensure autoplay resumes
             setTimeout(() => {
