@@ -834,9 +834,8 @@ function initLightbox() {
             // Desktop: normal embed (no background)
             // Mobile: background=1 to ensure inline rendering; rely on user tap to start
             const restricted = this.isAutoplayRestricted();
-            const embedUrl = restricted
-                ? `https://player.vimeo.com/video/${vimeoId}?background=1&autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`
-                : `https://player.vimeo.com/video/${vimeoId}?autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`;
+            // Use the normal embed on all platforms; background=1 disables audio
+            const embedUrl = `https://player.vimeo.com/video/${vimeoId}?autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`;
             if (DEBUG) console.log(`Setting iframe src: ${embedUrl}`);
             this.videoFrame.src = embedUrl;
             
@@ -867,13 +866,18 @@ function initLightbox() {
                     if (this.videoFrame) {
                         this.videoFrame.style.opacity = '1';
                     }
-                    // Ensure default volume; do not force muted state
+                    // Ensure default volume; sync muted state
+                    try { this.currentPlayer.setVolume(1).catch(() => {}); } catch (_) {}
                     try {
-                        this.currentPlayer.setVolume(1).catch(() => {});
+                        if (typeof this.currentPlayer.getMuted === 'function') {
+                            this.currentPlayer.getMuted().then(m => { this.isMuted = !!m; });
+                        } else {
+                            this.currentPlayer.getVolume().then(v => { this.isMuted = (v === 0); });
+                        }
                     } catch (_) {}
-                    // Mobile: hint user to tap for audio
+                    // Mobile: hint user to tap if muted
                     try {
-                        if (this.isAutoplayRestricted()) {
+                        if (this.isAutoplayRestricted() && this.isMuted) {
                             this.showCenterToast('Tap to unmute', 1500);
                         }
                     } catch (_) {}
@@ -963,10 +967,9 @@ function initLightbox() {
                 }
             } else {
                 const restricted = this.isAutoplayRestricted();
-                if (restricted && this.isMuted) {
+                if (restricted /* mobile */) {
                     Promise.resolve()
-                        // Belt-and-suspenders: play, unmute, play again
-                        .then(() => { try { return this.currentPlayer.play(); } catch (_) {} })
+                        // Always force unmute+volume, then play (works whether currently muted or not)
                         .then(() => { try { return this.currentPlayer.setMuted(false); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.setVolume(1); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.play(); } catch (_) {} })
