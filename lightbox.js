@@ -828,9 +828,13 @@ function initLightbox() {
                 return;
             }
             
-            // Set the iframe src with the full video ID (Option C pattern)
-            // background=1, autoplay=0, muted=0; rely on single user tap to start with audio
-            const embedUrl = `https://player.vimeo.com/video/${vimeoId}?background=1&autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`;
+            // Set the iframe src with the full video ID
+            // Desktop: normal embed (no background)
+            // Mobile: background=1 to ensure inline rendering; rely on user tap to start
+            const restricted = this.isAutoplayRestricted();
+            const embedUrl = restricted
+                ? `https://player.vimeo.com/video/${vimeoId}?background=1&autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`
+                : `https://player.vimeo.com/video/${vimeoId}?autoplay=0&muted=0&controls=0&dnt=1&transparent=0&playsinline=1`;
             if (DEBUG) console.log(`Setting iframe src: ${embedUrl}`);
             this.videoFrame.src = embedUrl;
             
