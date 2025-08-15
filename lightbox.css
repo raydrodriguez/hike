@@ -1,0 +1,711 @@
+/* ================================
+   VIMEO LIGHTBOX SYSTEM STYLES
+   ================================ */
+
+
+
+
+.video-thumbnail {
+    position: relative;
+    width: 100%;
+    height: auto;
+    display: block;
+    aspect-ratio: 16 / 9;
+    background: transparent;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.video-thumbnail:hover {
+    transform: scale(1.03);
+    opacity: 0.8;
+}
+
+/* Fallback for browsers that don't support aspect-ratio */
+@supports not (aspect-ratio: 16 / 9) {
+    .video-thumbnail {
+        padding-bottom: 56.25%;
+        height: 0;
+    }
+}
+
+
+
+.video-thumbnail iframe {
+    position: absolute !important;
+    top: -5% !important;
+    left: -5% !important;
+    width: 110% !important;
+    height: 110% !important;
+    object-fit: cover !important;
+    transition: opacity 0.3s ease !important;
+    pointer-events: none !important;
+    border-radius: 8px !important;
+    opacity: 0 !important;
+    z-index: 2 !important;
+}
+
+.video-thumbnail:hover iframe {
+    opacity: 1 !important;
+}
+
+/* When iframe fails to load, ensure image stays visible */
+.video-thumbnail.video-failed iframe {
+    display: none !important;
+}
+
+/* ================================
+   LIGHTBOX OVERLAY & CONTAINER (ORIGINAL)
+   ================================ */
+
+.lightbox-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important; /* fallback */
+    height: 100dvh !important; /* dynamic viewport height */
+    height: 100svh !important; /* small viewport height for mobile browser UI */
+    background: rgba(0, 0, 0, 1) !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 999999 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: opacity 0.3s ease, visibility 0.3s ease !important;
+    padding: 0 !important;
+    pointer-events: none !important; /* don't block hover/clicks when hidden */
+}
+
+.lightbox-overlay.active {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+.lightbox-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh; /* fallback */
+    height: 100dvh; /* dynamic viewport height */
+    height: 100svh; /* small viewport height for mobile browser UI */
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Removed scale-in/out on container for simple fade via overlay */
+
+.lightbox-close {
+    position: absolute !important;
+    top: calc(20px + env(safe-area-inset-top));
+    right: calc(20px + env(safe-area-inset-right));
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 16px !important;
+    cursor: pointer !important;
+    z-index: 1000001 !important;
+    padding: 10px 15px !important;
+    border-radius: 6px !important;
+    transition: background-color 0.2s ease !important;
+}
+
+.lightbox-close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.lightbox-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+/* ================================
+   CUSTOM VIDEO PLAYER (ORIGINAL)
+   ================================ */
+
+.custom-video-player {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+}
+
+.custom-video-player .video-frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #000000;
+    opacity: 0; /* fade in when player is ready to avoid jump */
+    transition: opacity 0.3s ease;
+}
+
+.custom-video-player .click-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    cursor: pointer;
+    background: transparent;
+}
+
+.custom-video-player .video-error-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 5;
+}
+
+.custom-video-player .video-error-placeholder.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.custom-video-player .video-error-placeholder .error-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #ffffff;
+}
+
+.custom-video-player .video-error-placeholder .error-subtitle {
+    font-size: 1rem;
+    opacity: 0.7;
+    color: #cccccc;
+}
+
+.custom-video-player .loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 8;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.custom-video-player .loading.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.custom-video-player .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.custom-video-player .control-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 12; /* above controls so feedback is visible */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    pointer-events: none; /* do not block clicks */
+}
+
+.custom-video-player .control-indicator.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%);
+}
+
+.custom-video-player .control-text {
+    color: #ffffff;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    will-change: opacity, visibility, transform;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    transition: none;
+}
+
+.custom-video-player .controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+    padding: 20px;
+    padding-top: 48px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+}
+
+.custom-video-player:hover .controls {
+    opacity: 1;
+    visibility: visible;
+}
+
+.controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    order: 3;
+}
+
+.controls-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 120px !important;
+    flex-shrink: 0 !important;
+}
+
+.custom-video-player .play-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+/* Align play button label with title/timeline left edge */
+.controls-left .play-btn {
+    padding-left: 0 !important;
+}
+
+/* Mute button style aligned with play button */
+.custom-video-player .mute-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+
+.custom-video-player .play-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.controls-center {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding: 0 20px; /* desktop: add 20px padding */
+    min-width: 0 !important;
+    position: absolute;
+    top: 8px;
+    left: 0px;
+    right: 20px;
+}
+
+.video-title-info {
+    text-align: left;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.controls-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+    justify-content: flex-end !important;
+}
+
+.controls-right .time-display {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    min-width: max-content;
+}
+
+.controls-right .time-separator {
+    opacity: 0.7;
+    margin: 0 2px;
+}
+
+.timeline-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    order: 2;
+}
+
+.timeline-container {
+    position: relative;
+    width: 100%;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.timeline-track {
+    position: relative;
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.timeline-container:hover .timeline-track {
+    height: 4px;
+}
+
+.timeline-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #ffffff;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+.timeline-handle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border-radius: 50%;
+    cursor: grab;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    left: 0%;
+}
+
+.timeline-container:hover .timeline-handle {
+    opacity: 1;
+    visibility: visible;
+}
+
+.timeline-hover-time {
+    position: absolute;
+    bottom: 30px;
+    left: 0;
+    background: rgba(0, 0, 0, 0.8);
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.timeline-container:hover .timeline-hover-time {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+
+/* ================================
+   RESPONSIVE STYLES (ORIGINAL)
+   ================================ */
+
+@media (max-width: 768px) {
+    
+    /* Show video thumbnails by default on mobile (no hover needed) */
+    .video-thumbnail iframe {
+        opacity: 1 !important;
+    }
+    
+    /* Ensure full-height on mobile; avoid inner padding that creates gaps */
+    .custom-video-player { padding-bottom: 0; height: 100%; }
+    
+    
+    .custom-video-player .controls {
+        padding: 15px;
+        padding-top: 48px;
+        opacity: 1; /* always visible on touch devices */
+        visibility: visible;
+    }
+    
+    .controls-row {
+        flex-direction: row;
+        gap: 0;
+    }
+    
+    .controls-left {
+        order: 0;
+        width: 75px !important;
+    }
+    .controls-right {
+        order: 0;
+        width: 75px !important;
+    }
+    
+    .controls-left {
+        justify-content: flex-start !important;
+    }
+    
+    .controls-right {
+        justify-content: flex-end !important;
+    }
+    
+    .controls-center {
+        order: 0;
+        padding: 0 15px !important; /* mobile override */
+    }
+    
+    .timeline-row {
+        order: 2;
+        margin-top: 0;
+    }
+    
+    .timeline-container {
+        height: 20px;
+    }
+    
+    .timeline-track {
+        height: 3px;
+    }
+    
+    .timeline-container:hover .timeline-track {
+        height: 4px;
+    }
+    
+    .timeline-handle {
+        width: 16px;
+        height: 16px;
+        opacity: 1; /* always visible on touch devices */
+        visibility: visible;
+    }
+    
+    .lightbox-close {
+        top: calc(15px + env(safe-area-inset-top));
+        right: calc(15px + env(safe-area-inset-right));
+    }
+    
+   
+    
+    .custom-video-player .video-error-placeholder .error-text {
+        font-size: 16px;
+    }
+    
+    .custom-video-player .video-error-placeholder .error-subtitle {
+        font-size: 12px;
+    }
+    
+
+}
+
+/* Ensure controls are visible on devices without hover (robust beyond width breakpoints) */
+@media (hover: none) and (pointer: coarse) {
+    .custom-video-player .controls {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    .timeline-handle {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+}
+
+/* Hide the scrubber tip (handle) per request */
+.timeline-handle {
+    display: none !important;
+}
+
+@media (max-width: 480px) {
+    .custom-video-player .controls {
+        padding: 12px;
+        padding-top: 44px;
+    }
+    
+    .controls-row {
+        gap: 8px;
+    }
+    
+    .controls-left {
+        gap: 8px !important;
+        width: 75px !important;
+    }
+    .controls-right {
+        gap: 8px !important;
+        width: 75px !important;
+    }
+    
+    .controls-left {
+        justify-content: flex-start !important;
+    }
+    
+    .controls-right {
+        justify-content: flex-end !important;
+    }
+    
+    .video-title-info {
+        font-size: 11px;
+    }
+    
+    .timeline-row {
+        margin-top: 0;
+    }
+    
+    .timeline-container {
+        height: 20px;
+    }
+    
+    .timeline-track {
+        height: 3px;
+    }
+    
+    .timeline-container:hover .timeline-track {
+        height: 4px;
+    }
+    
+    .timeline-handle {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .custom-video-player .video-error-placeholder .error-text {
+        font-size: 14px;
+    }
+    
+    .custom-video-player .video-error-placeholder .error-subtitle {
+        font-size: 11px;
+    }
+    
+
+}
+
+/* ================================
+   ACCESSIBILITY & MOTION PREFERENCES
+   ================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .video-thumbnail,
+    .lightbox-overlay,
+    .lightbox-container,
+    .custom-video-player .controls,
+    .custom-video-player .loading,
+    .custom-video-player .control-indicator,
+    .timeline-progress,
+    .timeline-handle,
+    .timeline-hover-time,
+    .open-lightbox .video-thumbnail {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* ================================
+   WEBFLOW COMPATIBILITY FIXES
+   ================================ */
+
+/* Ensure lightbox is always on top of Webflow elements */
+.webflow-lightbox {
+    z-index: 999999 !important;
+}
+
+/* Fix any potential conflicts with Webflow's body styles */
+body.lightbox-active {
+    overflow: hidden !important;
+}
+
+/* Lock viewport when lightbox is active (prevents mobile background scroll with smooth scroll/Webflow) */
+html.lightbox-active {
+    overflow: hidden !important;
+    height: 100dvh !important;
+    overscroll-behavior: none !important;
+    position: fixed; /* prevent iOS rubber-banding */
+    width: 100%;
+    scroll-behavior: auto !important; /* cancel smooth scroll during lightbox */
+}
+
+html.lightbox-active body {
+    height: 100% !important;
+    overflow: hidden !important;
+}
+
+/* Ensure proper positioning in Webflow */
+.webflow-lightbox * {
+    box-sizing: border-box !important;
+}
+
+/* Override any Webflow button styles on lightbox controls */
+.webflow-lightbox .lightbox-close,
+.webflow-lightbox .play-btn {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+} 
+
+
+.work-page .open-lightbox .project-data:hover .video-thumbnail iframe {
+    opacity: 1 !important;
+}
+
