@@ -858,6 +858,12 @@ function initLightbox() {
                     try {
                         this.currentPlayer.setVolume(1).catch(() => {});
                     } catch (_) {}
+                    // Mobile: hint user to tap for audio
+                    try {
+                        if (this.isAutoplayRestricted()) {
+                            this.showCenterToast('Tap to unmute', 1500);
+                        }
+                    } catch (_) {}
                     // No auto-play here; rely on user tap
                 }).catch(error => {
                     console.error('Error loading video:', error);
@@ -937,10 +943,10 @@ function initLightbox() {
                 const restricted = this.isAutoplayRestricted();
                 if (restricted && this.isMuted) {
                     Promise.resolve()
-                        .then(() => { try { return this.currentPlayer.play(); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.setMuted(false); } catch (_) {} })
                         .then(() => { try { return this.currentPlayer.setVolume(1); } catch (_) {} })
-                        .then(() => { this.isMuted = false; this.updateMuteButtonLabel(); })
+                        .then(() => { try { return this.currentPlayer.play(); } catch (_) {} })
+                        .then(() => { this.isMuted = false; this.updateMuteButtonLabel(); this.hideCenterToast(); })
                         .catch(() => { try { this.currentPlayer.play(); } catch (_) {} });
                 } else {
                     this.currentPlayer.play().catch(() => {});
